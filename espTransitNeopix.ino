@@ -85,7 +85,7 @@ void fetchTransit() {
 		return;
 	}
 
-	String url = "/maps/api/distancematrix/json?units=metric&origins=1+Sandton+Drive&destinations=3+Melrose+Boulevard&Transit_model=best_guess&key=AIzaSyDdx4do6tQA_gf8em2baN3A0ffzdYz1Pc8&departure_time=now";
+	String url = "/maps/api/distancematrix/json?units=metric&origins=1+Sandton+Drive&destinations=3+Melrose+Boulevard&Transit_model=best_guess&key=xxxxxxxxxxxxxxxxxxxx&departure_time=now";
 	DEBUG_PRINT("requesting URL: ");
 	DEBUG_PRINTLN(url);
 
