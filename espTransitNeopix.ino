@@ -44,7 +44,6 @@ const char* _wifiAPPwd = "********";
 ESP8266WebServer _httpServer(80);
 String __webClientReturnString = "";
 
-
 const char* host = "maps.googleapis.com";
 const int httpsPort = 443;
 
@@ -54,11 +53,6 @@ float _tempVal = 0;
 
 bool _displayTemp = false;
 
-int delayval;   //delay between assigning value to next LED
-int r;
-int g;
-int b;
-
 const long timebetweenruns = 5 * 60 * 1000;  //300 000 = 5 min
 const long timebetweenanimationruns = 60 * 1000;  //every 60 seconds
 const long timebetweentransitanimationruns = 15 * 1000;  //every 15 seconds
@@ -67,68 +61,10 @@ unsigned long animationrun; //set variable to time store
 unsigned long transitrun; //set variable to time store
 unsigned long animationtransitrun; //set variable to time store
 
-void SetRGB(int __r, int __g, int __b){
-	r = __r;
-	g = __g;
-	b = __b;
-}
-
-// Pause = delay between transitions
-// Steps = number of steps
-// R, G, B = Full-on RGB values
-void breathe2(int pause, int steps, byte R, byte G, byte B) {
-
-	int tmpR, tmpG, tmpB;         // Temp values
-	
-	// Fade down
-	for (int s = steps; s > 0; s--) {
-		tmpR = (R * s * _brightness) / steps / 100;     // Multiply first to avoid truncation errors  
-		tmpG = (G * s * _brightness) / steps / 100;
-		tmpB = (B * s * _brightness) / steps / 100;
-
-		for (int i = 0; i < NUMPIXELS; i++) {
-			pixels.setPixelColor(i, tmpR, tmpG, tmpB);
-		}
-		
-		pixels.show();
-		delay(pause);
-	}
-
-	// Fade back up
-	for (int s = 1; s <= steps; s++) {
-		tmpR = (R * s * _brightness) / steps / 100;     // Multiply first to avoid truncation errors  
-		tmpG = (G * s * _brightness) / steps / 100;
-		tmpB = (B * s * _brightness) / steps / 100;
-
-		for (int i = 0; i < NUMPIXELS; i++) {
-			pixels.setPixelColor(i, tmpR, tmpG, tmpB);
-		}
-
-		pixels.show();
-		delay(pause);
-	}
-}
-
-void SetIsDisplayOn(bool __isOn) {
-	
+void SetIsDisplayOn(bool __isOn) {	
 	if (__isOn==false)
 		clearcolors(true);	
-
 	_isDisplayOn = __isOn;
-}
-
-void pixelSetBrightness(int brightPercentage) {
-	//lossy: pixels.setBrightness(__brightness);
-	float __newR, __newG, __newB;
-	__newR = r*brightPercentage / 100;
-	__newG = g*brightPercentage / 100;
-	__newB = b*brightPercentage / 100;
-	
-	for (int i = 0; i < NUMPIXELS; i++) {
-		// pixels.Color takes RGB values, from 0,0,0 up to 255,255,255
-		pixels.setPixelColor(i, pixels.Color((int)__newR, (int)__newG, (int)__newB)); // set rgb values
-	}
-	pixels.show();
 }
 
 String IpAddress2String(const IPAddress& ipAddress) {
@@ -195,46 +131,6 @@ void fetchTransit() {
 	client.stop();
 }
 
-///////////////////// clear neopixel //////////////////////////////////
-void clearcolors(bool _delay) {
-	DEBUG_PRINTLN("Clear Colours");
-	for (int i = 0; i < NUMPIXELS; i++) {
-		// pixels.Color takes RGB values, from 0,0,0 up to 255,255,255
-		pixels.setPixelColor(i, pixels.Color(0, 0, 0)); // set rgb values
-		pixels.show(); // This sends the updated pixel color to the hardware.
-		if (_delay) delay(100);
-	}
-}
-
-///////////////////// loading neopixel //////////////////////////////////
-uint32_t Wheel(byte WheelPos) {
-	if (WheelPos < 85) {
-		return (pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0) * 3);
-	}
-	else if (WheelPos < 170) {
-		WheelPos -= 85;
-		return (pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3) * .3);
-	}
-	else {
-		WheelPos -= 170;
-		return (pixels.Color(0, WheelPos * 3, 255 - WheelPos * 3) * .3);
-	}
-}
-
-void loading_colors() {
-	DEBUG_PRINTLN("Loading Colours");
-
-	uint16_t i, j;
-	for (j = 0; j < 256; j++) {
-		for (i = 0; i < NUMPIXELS; i++) {
-			pixels.setPixelColor(i, Wheel((i + j) & 200));
-		}		
-		pixels.setBrightness(_brightness);
-		pixels.show();
-		delay(10);
-	}
-}
-
 ///////////////////// Transit Mode //////////////////////////////////
 void updateTransitColours() {
 
@@ -244,32 +140,18 @@ void updateTransitColours() {
 
 	//// set RGB colors for the quickest commute and before
 	if (_transitDuration < _normalDuration) {
-		SetRGB(255, 255, 255);
+		_currentColour = {255, 255, 255};
 	}
 	else
 	{
 		__percentageDiff = (_transitDuration / _normalDuration) * 100;
-
-		//set RGB colors for the quickest < 10% extra travel time
-		if (__percentageDiff < 115) { 
-			SetRGB(0, 255, 0);		//green = okay
-		} 
-		else if (__percentageDiff < 125) {
-			SetRGB(255, 215, 0);	//gold
-		} 
-		else if (__percentageDiff < 135) { 
-			SetRGB(255, 165, 0); //orange
-		} // set RGB colors for the longest commute and beyond
-		else {
-			SetRGB(255, 0, 0);  //red
-		}
+    _currentColour = findColourInRange(__percentageDiff);  
+    
+    fade(_oldColour, _currentColour);	
+	  _oldColour = _currentColour;
+    
+    OutputColour(_currentColour);
 	}
-
-	_oldColour = { r,g,b };
-
-	DEBUG_PRINT("R: ");	DEBUG_PRINTLN(r);
-	DEBUG_PRINT("G: ");	DEBUG_PRINTLN(g);
-	DEBUG_PRINT("B: ");	DEBUG_PRINTLN(b);
 }
 
 void setupHTTPUpdateServer() {
@@ -370,7 +252,7 @@ void setup() {
 	pixels.begin();
 
 	currentrun = millis();
-	loading_colors();  // fun loading light sequence
+  loading_colors();  // loading light sequence
 
 	updateTransitColours();
 }
@@ -386,16 +268,15 @@ void loop() {
 			if (currentrun - transitrun >= timebetweenruns) {
 				DEBUG_PRINTLN("loading transit"); //for reference
 				transitrun = currentrun;
-				loading_colors();
+        loading_colors();  // loading light sequence
 				updateTransitColours(); //update traffic info
-
 			}
 
 			//transit animation
 			if (currentrun - animationtransitrun >= timebetweentransitanimationruns) {
 				DEBUG_PRINTLN("transit animation"); //for reference
 				animationtransitrun = currentrun;
-	      breathe2(50, 250, r, g, b);
+	      breathe2(50, 250, _currentColour.r, _currentColour.g, _currentColour.b);
 			}
   }
 }
